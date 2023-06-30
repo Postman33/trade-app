@@ -4,6 +4,7 @@ import { Order } from '../App';
 import { DataTable } from 'primereact/datatable';
 import { Column } from 'primereact/column';
 import { Tag } from 'primereact/tag';
+import './OrderInfo.css';
 
 type OrderInfoProps = {
     orders: Order[]
@@ -19,12 +20,18 @@ const OrderInfo: React.FC<OrderInfoProps> = ({ orders }) => {
         );
     };
 
+
     return (
         <div>
             <h2>Order Information</h2>
-            <DataTable value={orders} paginator rows={10}>
+            <DataTable value={orders} paginator rows={4}
+                       rowClassName={(rowData) =>
+                           ({'buyOrder': rowData.side === 'Buy', 'sellOrder': rowData.side === 'Sell'})}
+
+            >
                 <Column field="order_id" header="Order ID"></Column>
                 <Column field="timestamp" header="Timestamp"></Column>
+                <Column field="last_changed" header="last_changed"></Column>
                 <Column field="instrument" header="Instrument"></Column>
                 <Column field="side" header="Side"></Column>
                 <Column field="price" header="Price"></Column>

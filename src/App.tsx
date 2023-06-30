@@ -1,18 +1,25 @@
 // App.tsx
-import React, { useEffect, useState } from 'react';
+import React, {useEffect, useRef, useState} from 'react';
 import { Dropdown } from 'primereact/dropdown';
 import { Button } from 'primereact/button';
 import { InputNumber } from 'primereact/inputnumber';
 import QuoteInfo from './components/QuoteInfo';
 import OrderInfo from "./components/OrderInfo";
 import PlaceOrderForm from "./components/PlaceOrderForm";
+import orderInfo from "./components/OrderInfo";
+import { Toast } from 'primereact/toast';
+import { Chart } from 'primereact/chart';
+import dayjs from "dayjs";
+
+
 
 
 export type Quote = {
     bid: number,
     offer: number,
     min_amount: number,
-    max_amount: number
+    max_amount: number,
+    timestamp: string
 };
 
 export type Order = {
@@ -20,9 +27,10 @@ export type Order = {
     timestamp: string,
     instrument: string,
     side: string,
-    price: number,
+    price: string,
     volume: number,
-    status: string
+    status: string,
+    last_changed: string
 };
 
 type AppProps = {};
@@ -31,8 +39,35 @@ const App: React.FC<AppProps> = () => {
     const [socket, setSocket] = useState<WebSocket | null>(null);
     const [selectedTicker, setSelectedTicker] = useState<string | null>(null);
     const [quote, setQuote] = useState<Quote | null>(null);
-    const [orders, setOrders] = useState<Order[]>([]);
+    const [quotes, setQuotes] = useState<Quote[] | null>(null);
 
+    const [orders, setOrders] = useState<Order[]>([]);
+    const toast = useRef<Toast>(null); // Add this line
+
+    const [chartData, setChartData] = useState<{ labels: string[], datasets: any[] }>({
+        labels: [],
+        datasets: [
+            {
+                label: 'Offer',
+                data: [],
+                fill: false,
+                borderColor: '#4bc0c0'
+            }
+        ]
+    });
+    const chartOptions = {
+        animation: false,
+        title: {
+            display: true,
+            text: 'Offer Chart',
+            fontSize: 16
+        },
+        legend: {
+            position: 'top'
+        },
+        responsive: true,
+        maintainAspectRatio: false
+    };
     useEffect(() => {
         const ws = new WebSocket('ws://localhost:8765');
         setSocket(ws);
@@ -42,29 +77,89 @@ const App: React.FC<AppProps> = () => {
     }, []);
 
     useEffect(() => {
+        if (quotes != null) {
+            setChartData({
+
+
+                labels: quotes.map(quote => dayjs(quote.timestamp).format("MM/DD HH:mm:ss A")).reverse(),
+                datasets: [{
+                    label: 'Offer',
+                    data: quotes.map(quote => quote.offer).reverse(),
+                    fill: false,
+                    borderColor: '#4bc0c0'
+                },
+                    {
+                        label: 'Bid',
+                        data: quotes.map(quote => quote.bid).reverse(),
+                        fill: false,
+                        borderColor: '#d5af12'
+                    }]
+            });
+        }
+    }, [quotes]);
+
+    useEffect(() => {
         if (socket == null)
             return;
 
         socket.onmessage = (event) => {
             const message = JSON.parse(event.data);
+            console.log(message)
+
             if (message.messageType === 'CurrentQuotes' && selectedTicker != null) {
                 setQuote(message.message as Quote);
             } else if (message.messageType === 'OrderInfo') {
+                let orders = message.message as Order[]
+                orders.map( order => {
+                    if (order.side === 'Sell'){
+                        order.price = ">" + order.price
+                    } else {
+                        order.price = "<" + order.price
+                    }
+                    return order
+                })
                 setOrders(message.message as Order[]);
+                console.log(message)
             }
             else if (message.messageType === 'MarketDataUpdate'){
                 console.log(message.message as Quote)
                 setQuote(message.message as Quote);
             }
-            console.log(message.message as Quote)
+            else if (message.messageType === 'QuotesInfo'){
+                setQuotes(message.message as Quote[])
+            }
 
+        };
+        socket.onerror = function(error) {
+            // Show a toast notification about the error
+            if (toast && toast.current) toast.current.show({severity: 'error', summary: 'Network error', detail: 'We will try to reconnect after 5 seconds'});
+            // Attempt to reconnect after 5 seconds
+            setTimeout(() => {
+                setSocket(new WebSocket('ws://localhost:8765'));
+            }, 5000);
         };
 
 
-        setInterval(() => {
+        window.onbeforeunload = () => {
+            if (selectedTicker) {
+                socket.send(JSON.stringify({
+                    messageType: 'UnsubscribeMarketData',
+                    message: {instrument: selectedTicker}
+                }));
+            }
+
+        }
+
+        let id = setInterval(() => {
+            if (socket == null) {
+                clearInterval(id);
+                return
+            }
+
             socket.send(JSON.stringify({
                 messageType: 'GetOrderInfo'
             }));
+
         }, 5000);
 
     }, [socket, selectedTicker]);
@@ -103,14 +198,23 @@ const App: React.FC<AppProps> = () => {
         }));
     };
 
+
+
     return (
-        <div>
+        <div style={{'padding': '20px'}}>
+            <Toast ref={toast} /> {/* Add this line */}
             <h1>Market data app</h1>
+
             <Dropdown value={selectedTicker} options={tickers} onChange={(e) => selectTicker(e.value)} placeholder="Select a Ticker"/>
-            <QuoteInfo quote={quote} />
-            <PlaceOrderForm onPlaceOrder={placeOrder} />
-            <OrderInfo orders={orders} />
+            { selectedTicker &&
+                <QuoteInfo quote={quote} /> }
+            { selectedTicker && <Chart type="line" data={chartData} options={chartOptions} /> }
+
+            { selectedTicker && <PlaceOrderForm onPlaceOrder={placeOrder} />}
+            { selectedTicker && <OrderInfo orders={orders.filter(order=>order.instrument===selectedTicker)} />}
+
         </div>
+
     );
 };
 

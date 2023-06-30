@@ -18,8 +18,8 @@ const PlaceOrderForm: React.FC<PlaceOrderFormProps> = ({ onPlaceOrder }) => {
         <div>
             <h2>Place Order</h2>
             <Dropdown value={side} options={sides} onChange={(e) => setSide(e.value)} placeholder="Select Side"/>
-            <InputNumber value={price} onValueChange={(e) => setPrice(e.value || -5)} mode="decimal" min={0} placeholder="Price"/>
-            <InputNumber aria-label={'testst'} value={volume} onValueChange={(e) => setVolume(e.value || -5)} mode="decimal" min={0} placeholder="Volume"/>
+            <InputNumber  value={price} onValueChange={(e) => setPrice(e.value || -5)} mode="decimal" min={0} placeholder="Price" tooltip='Price'/>
+            <InputNumber aria-label={'testst'} value={volume} onValueChange={(e) => setVolume(e.value || -5)} mode="decimal" min={0} tooltip="Volume"/>
             <Button label="Place Order" onClick={() => onPlaceOrder(side, price, volume)} />
         </div>
     );

@@ -9,6 +9,8 @@
     "@types/node": "^16.18.7",
     "@types/react": "^18.0.26",
     "@types/react-dom": "^18.0.9",
+    "chart.js": "^4.3.0",
+    "dayjs": "^1.11.8",
     "primeicons": "^6.0.1",
     "primereact": "^9.6.0",
     "react": "^18.2.0",
