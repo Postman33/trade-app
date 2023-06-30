@@ -1,17 +1,13 @@
 // App.tsx
 import React, {useEffect, useRef, useState} from 'react';
-import { Dropdown } from 'primereact/dropdown';
-import { Button } from 'primereact/button';
-import { InputNumber } from 'primereact/inputnumber';
+import {Dropdown} from 'primereact/dropdown';
 import QuoteInfo from './components/QuoteInfo';
 import OrderInfo from "./components/OrderInfo";
 import PlaceOrderForm from "./components/PlaceOrderForm";
-import orderInfo from "./components/OrderInfo";
-import { Toast } from 'primereact/toast';
-import { Chart } from 'primereact/chart';
+import {Toast} from 'primereact/toast';
+import {Chart} from 'primereact/chart';
 import dayjs from "dayjs";
-
-
+import {setupChartData} from "./services/ChartService";
 
 
 export type Quote = {
@@ -35,6 +31,7 @@ export type Order = {
 
 type AppProps = {};
 
+
 const App: React.FC<AppProps> = () => {
     const [socket, setSocket] = useState<WebSocket | null>(null);
     const [selectedTicker, setSelectedTicker] = useState<string | null>(null);
@@ -57,6 +54,7 @@ const App: React.FC<AppProps> = () => {
     });
     const chartOptions = {
         animation: false,
+
         title: {
             display: true,
             text: 'Offer Chart',
@@ -65,6 +63,13 @@ const App: React.FC<AppProps> = () => {
         legend: {
             position: 'top'
         },
+        scales: {
+            yAxis: {
+                min: 0, // Минимальное значение оси Y
+                max: 250, // Максимальное значение оси Y
+            }
+        },
+
         responsive: true,
         maintainAspectRatio: false
     };
@@ -76,27 +81,7 @@ const App: React.FC<AppProps> = () => {
         };
     }, []);
 
-    useEffect(() => {
-        if (quotes != null) {
-            setChartData({
-
-
-                labels: quotes.map(quote => dayjs(quote.timestamp).format("MM/DD HH:mm:ss A")).reverse(),
-                datasets: [{
-                    label: 'Offer',
-                    data: quotes.map(quote => quote.offer).reverse(),
-                    fill: false,
-                    borderColor: '#4bc0c0'
-                },
-                    {
-                        label: 'Bid',
-                        data: quotes.map(quote => quote.bid).reverse(),
-                        fill: false,
-                        borderColor: '#d5af12'
-                    }]
-            });
-        }
-    }, [quotes]);
+    setupChartData(quotes, setChartData);
 
     useEffect(() => {
         if (socket == null)
@@ -202,16 +187,19 @@ const App: React.FC<AppProps> = () => {
 
     return (
         <div style={{'padding': '20px'}}>
-            <Toast ref={toast} /> {/* Add this line */}
+            <Toast ref={toast}/> {/* Add this line */}
             <h1>Market data app</h1>
 
-            <Dropdown value={selectedTicker} options={tickers} onChange={(e) => selectTicker(e.value)} placeholder="Select a Ticker"/>
-            { selectedTicker &&
-                <QuoteInfo quote={quote} /> }
-            { selectedTicker && <Chart type="line" data={chartData} options={chartOptions} /> }
+            <Dropdown value={selectedTicker} options={tickers} onChange={(e) => selectTicker(e.value)}
+                      placeholder="Select a Ticker"/>
+            {selectedTicker &&
+                <QuoteInfo quote={quote}/>}
+            {selectedTicker &&
+                <Chart type="line" height={'300px'} data={chartData} options={chartOptions}/>
+            }
 
-            { selectedTicker && <PlaceOrderForm onPlaceOrder={placeOrder} />}
-            { selectedTicker && <OrderInfo orders={orders.filter(order=>order.instrument===selectedTicker)} />}
+            {selectedTicker && <PlaceOrderForm onPlaceOrder={placeOrder}/>}
+            {selectedTicker && <OrderInfo orders={orders.filter(order => order.instrument === selectedTicker)}/>}
 
         </div>
 
