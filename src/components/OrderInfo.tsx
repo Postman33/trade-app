@@ -14,7 +14,7 @@ const OrderInfo: React.FC<OrderInfoProps> = ({ orders }) => {
     const statusBodyTemplate = (rowData: Order) => {
         return (
             <Tag severity={rowData.status === 'Active' ? 'success' : 'danger'}
-                 icon={rowData.status === 'Active' ? 'pi-check' : 'pi-times'}>
+                 icon={rowData.status === 'Active' ? 'pi pi-check' : 'pi pi-times'}>
                 {rowData.status}
             </Tag>
         );

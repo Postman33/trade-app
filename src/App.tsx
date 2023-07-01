@@ -8,6 +8,7 @@ import {Toast} from 'primereact/toast';
 import {Chart} from 'primereact/chart';
 import dayjs from "dayjs";
 import {setupChartData} from "./services/ChartService";
+import {SmartWebSocket} from "./services/WebSocket";
 
 
 export type Quote = {
@@ -33,7 +34,7 @@ type AppProps = {};
 
 
 const App: React.FC<AppProps> = () => {
-    const [socket, setSocket] = useState<WebSocket | null>(null);
+    const [socket, setSocket] = useState<SmartWebSocket | null>(null);
     const [selectedTicker, setSelectedTicker] = useState<string | null>(null);
     const [quote, setQuote] = useState<Quote | null>(null);
     const [quotes, setQuotes] = useState<Quote[] | null>(null);
@@ -73,8 +74,21 @@ const App: React.FC<AppProps> = () => {
         responsive: true,
         maintainAspectRatio: false
     };
+
+    const toastShow = (severity: 'success' | 'info' | 'warn' | 'error' | undefined, summary: string, detail: string)=>{
+        if (toast && toast.current) toast.current.show({severity: severity, summary: summary, detail: detail});
+    }
+    const sendingError = (commText: string )=>{
+       return ()=>{ toastShow( 'error', 'Network error',  'Message was not delivered \n' + commText)};
+    }
+    const reconnectWithToast = (TIMEOUT: number = 5000)=>{
+        toastShow( 'error', 'Network error',  'We will try to reconnect after 5 seconds');
+        setTimeout(() => {
+            setSocket(new SmartWebSocket('ws://localhost:8765'));
+        }, TIMEOUT);
+    }
     useEffect(() => {
-        const ws = new WebSocket('ws://localhost:8765');
+        const ws = new SmartWebSocket('ws://localhost:8765');
         setSocket(ws);
         return () => {
             ws.close();
@@ -116,34 +130,30 @@ const App: React.FC<AppProps> = () => {
 
         };
         socket.onerror = function(error) {
-            // Show a toast notification about the error
-            if (toast && toast.current) toast.current.show({severity: 'error', summary: 'Network error', detail: 'We will try to reconnect after 5 seconds'});
-            // Attempt to reconnect after 5 seconds
-            setTimeout(() => {
-                setSocket(new WebSocket('ws://localhost:8765'));
-            }, 5000);
+            reconnectWithToast(5000);
         };
 
 
         window.onbeforeunload = () => {
             if (selectedTicker) {
-                socket.send(JSON.stringify({
+                socket.smartSend(JSON.stringify({
                     messageType: 'UnsubscribeMarketData',
                     message: {instrument: selectedTicker}
-                }));
+                }), sendingError("UnsubscribeMarketData"));
             }
 
         }
 
         let id = setInterval(() => {
-            if (socket == null) {
+            if (socket.readyState !== WebSocket.OPEN) {
                 clearInterval(id);
                 return
             }
-
-            socket.send(JSON.stringify({
+            socket.smartSend(JSON.stringify({
                 messageType: 'GetOrderInfo'
-            }));
+            }), ()=> {
+
+            });
 
         }, 5000);
 
@@ -154,25 +164,25 @@ const App: React.FC<AppProps> = () => {
     const selectTicker = (ticker: string) => {
         if (socket == null)
             return;
-        if (ticker != null) socket.send(JSON.stringify({
+        if (ticker != null) socket.smartSend(JSON.stringify({
             messageType: 'UnsubscribeMarketData',
-            message: { instrument: ticker }
-        }));
+            message: {instrument: ticker}
+        }), sendingError("UnsubscribeMarketData"));
         setSelectedTicker(ticker);
 
-        socket.send(JSON.stringify({
+        socket.smartSend(JSON.stringify({
             messageType: 'SubscribeMarketData',
-            message: { instrument: ticker }
-        }));
-        socket.send(JSON.stringify({
+            message: {instrument: ticker}
+        }), sendingError("SubscribeMarketData"));
+        socket.smartSend(JSON.stringify({
             messageType: 'GetOrderInfo'
-    }));
+        }), sendingError("GetOrderInfo"));
     };
 
     const placeOrder = (side: string, price: number, volume: number) => {
         if (socket == null || selectedTicker == null)
             return;
-        socket.send(JSON.stringify({
+        socket.smartSend(JSON.stringify({
             messageType: 'PlaceOrder',
             message: {
                 instrument: selectedTicker,
@@ -180,7 +190,7 @@ const App: React.FC<AppProps> = () => {
                 price: price,
                 volume: volume
             }
-        }));
+        }), sendingError("PlaceOrder"));
     };
 
 
@@ -200,6 +210,7 @@ const App: React.FC<AppProps> = () => {
 
             {selectedTicker && <PlaceOrderForm onPlaceOrder={placeOrder}/>}
             {selectedTicker && <OrderInfo orders={orders.filter(order => order.instrument === selectedTicker)}/>}
+
 
         </div>
 
