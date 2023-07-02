@@ -1,6 +1,6 @@
 import {useEffect} from "react";
 import dayjs from "dayjs";
-import {Quote} from "../App";
+import {Quote} from "../models/Quote";
 
 export function setupChartData(quotes: Quote[] | null,
                                setChartData: (value: (((prevState: {

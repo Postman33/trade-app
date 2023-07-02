@@ -6,29 +6,12 @@ import OrderInfo from "./components/OrderInfo";
 import PlaceOrderForm from "./components/PlaceOrderForm";
 import {Toast} from 'primereact/toast';
 import {Chart} from 'primereact/chart';
-import dayjs from "dayjs";
 import {setupChartData} from "./services/ChartService";
 import {SmartWebSocket} from "./services/WebSocket";
+import {Quote} from "./models/Quote";
+import {Order} from "./models/Order";
+import {ClientMessages, ServerMessages} from "./models/TypeMessages";
 
-
-export type Quote = {
-    bid: number,
-    offer: number,
-    min_amount: number,
-    max_amount: number,
-    timestamp: string
-};
-
-export type Order = {
-    order_id: string,
-    timestamp: string,
-    instrument: string,
-    side: string,
-    price: string,
-    volume: number,
-    status: string,
-    last_changed: string
-};
 
 type AppProps = {};
 
@@ -70,7 +53,6 @@ const App: React.FC<AppProps> = () => {
                 max: 250, // Максимальное значение оси Y
             }
         },
-
         responsive: true,
         maintainAspectRatio: false
     };
@@ -105,26 +87,18 @@ const App: React.FC<AppProps> = () => {
             const message = JSON.parse(event.data);
             console.log(message)
 
-            if (message.messageType === 'CurrentQuotes' && selectedTicker != null) {
+            if (message.messageType === ServerMessages.CurrentQuotes && selectedTicker != null) {
                 setQuote(message.message as Quote);
-            } else if (message.messageType === 'OrderInfo') {
-                let orders = message.message as Order[]
-                orders.map( order => {
-                    if (order.side === 'Sell'){
-                        order.price = ">" + order.price
-                    } else {
-                        order.price = "<" + order.price
-                    }
-                    return order
-                })
+            } else if (message.messageType === ServerMessages.OrderInfo) {
                 setOrders(message.message as Order[]);
                 console.log(message)
             }
-            else if (message.messageType === 'MarketDataUpdate'){
+            else if (message.messageType === ServerMessages.MarketDataUpdate){
                 console.log(message.message as Quote)
                 setQuote(message.message as Quote);
             }
-            else if (message.messageType === 'QuotesInfo'){
+            else if (message.messageType === ServerMessages.QuotesInfo){
+
                 setQuotes(message.message as Quote[])
             }
 
@@ -137,7 +111,7 @@ const App: React.FC<AppProps> = () => {
         window.onbeforeunload = () => {
             if (selectedTicker) {
                 socket.smartSend(JSON.stringify({
-                    messageType: 'UnsubscribeMarketData',
+                    messageType: ClientMessages.UnsubscribeMarketData,
                     message: {instrument: selectedTicker}
                 }), sendingError("UnsubscribeMarketData"));
             }
@@ -150,7 +124,7 @@ const App: React.FC<AppProps> = () => {
                 return
             }
             socket.smartSend(JSON.stringify({
-                messageType: 'GetOrderInfo'
+                messageType: ClientMessages.GetOrderInfo
             }), ()=> {
 
             });
@@ -165,17 +139,17 @@ const App: React.FC<AppProps> = () => {
         if (socket == null)
             return;
         if (ticker != null) socket.smartSend(JSON.stringify({
-            messageType: 'UnsubscribeMarketData',
+            messageType: ClientMessages.UnsubscribeMarketData,
             message: {instrument: ticker}
         }), sendingError("UnsubscribeMarketData"));
         setSelectedTicker(ticker);
 
         socket.smartSend(JSON.stringify({
-            messageType: 'SubscribeMarketData',
+            messageType: ClientMessages.SubscribeMarketData,
             message: {instrument: ticker}
         }), sendingError("SubscribeMarketData"));
         socket.smartSend(JSON.stringify({
-            messageType: 'GetOrderInfo'
+            messageType: ClientMessages.GetOrderInfo
         }), sendingError("GetOrderInfo"));
     };
 
@@ -183,7 +157,7 @@ const App: React.FC<AppProps> = () => {
         if (socket == null || selectedTicker == null)
             return;
         socket.smartSend(JSON.stringify({
-            messageType: 'PlaceOrder',
+            messageType: ClientMessages.PlaceOrder,
             message: {
                 instrument: selectedTicker,
                 side: side,
